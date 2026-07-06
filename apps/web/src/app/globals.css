@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  color: #171717;
+  background: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Marketing pages force light mode — bg-white / text-slate-900 regardless of OS theme */
+.marketing-light {
+  background-color: #ffffff !important;
+  color: #0F172A !important;
+  color-scheme: light;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

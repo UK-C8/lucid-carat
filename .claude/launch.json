@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lucidcarat-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "cwd": "apps/web",
+      "env": {
+        "LC_DATABASE_URL": "postgresql://urvilkargathala@localhost/lucidcarat_dev"
+      }
+    }
+  ]
+}
