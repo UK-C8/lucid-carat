@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   images: { unoptimized: true },
   // R3F and Three.js ship ESM-only packages that must be transpiled by Next.js.
   transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],

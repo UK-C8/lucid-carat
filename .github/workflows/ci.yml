@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Next.js web app ────────────────────────────────────────────────────────
+  web:
+    name: Web — typecheck & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+        env:
+          # Dummy values so session.ts module-level guard doesn't crash at compile time
+          SESSION_SECRET: "00000000000000000000000000000000"
+          LC_DATABASE_URL: "postgresql://localhost/lucidcarat_ci"
+          LC_APP_DATABASE_URL: "postgresql://localhost/lucidcarat_ci"
+
+      - name: Lint
+        run: npm run lint
+        env:
+          SESSION_SECRET: "00000000000000000000000000000000"
+          LC_DATABASE_URL: "postgresql://localhost/lucidcarat_ci"
+          LC_APP_DATABASE_URL: "postgresql://localhost/lucidcarat_ci"
+
+  # ── Grading service ────────────────────────────────────────────────────────
+  grading:
+    name: Grading service — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/grading
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: services/grading/requirements.txt
+
+      - name: Install dependencies
+        # Install CPU-only torch to keep CI fast; full GPU build not needed for unit tests
+        run: |
+          pip install --upgrade pip
+          pip install torch==2.3.0+cpu torchvision==0.18.0+cpu \
+            --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt --no-deps --ignore-requires-python
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+        env:
+          LC_DATABASE_URL: ""
+          GRADING_CHECKPOINT: ""
+
+  # ── Pricing service ────────────────────────────────────────────────────────
+  pricing:
+    name: Pricing service — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/pricing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: services/pricing/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+        env:
+          LC_DATABASE_URL: ""
+          PRICING_CHECKPOINT: ""

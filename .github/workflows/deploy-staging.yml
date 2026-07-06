@@ -1,0 +1,141 @@
+name: Deploy — Staging
+
+# Runs automatically on every push to main after CI passes.
+# Builds Docker images, pushes to ECR, and updates ECS services.
+#
+# Required GitHub Actions secrets (set in repo Settings → Secrets):
+#   AWS_ACCOUNT_ID          — 12-digit AWS account number
+#   AWS_ACCESS_KEY_ID       — IAM key with ECR push + ECS deploy permissions
+#   AWS_SECRET_ACCESS_KEY   — matching secret
+#   SESSION_SECRET          — ≥32-char random string for iron-session
+#   LC_DATABASE_URL         — owner-level Postgres URL (staging RDS)
+#   LC_APP_DATABASE_URL     — lucidcarat_app role URL (staging RDS)
+#   STRIPE_SECRET_KEY       — Stripe secret key (staging/test mode)
+#   STRIPE_WEBHOOK_SECRET   — Stripe webhook signing secret (staging)
+#   STRIPE_PRICE_SEAT       — Stripe price ID for per-seat subscription
+#   STRIPE_PRICE_STONE      — Stripe price ID for per-stone metered usage
+#   NEXT_PUBLIC_APP_URL     — public URL of the staging web app
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false   # never cancel an in-flight deploy
+
+env:
+  AWS_REGION: ap-south-1
+  # TODO: replace with real ECR repo URIs after `terraform apply` in infra/environments/dev
+  ECR_WEB:     ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-web
+  ECR_GRADING: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-grading
+  ECR_PRICING: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-pricing
+  # TODO: replace with real ECS cluster/service names from Terraform outputs
+  ECS_CLUSTER:         lucidcarat-dev
+  ECS_SERVICE_WEB:     lucidcarat-web-dev
+  ECS_SERVICE_GRADING: lucidcarat-grading-dev
+  ECS_SERVICE_PRICING: lucidcarat-pricing-dev
+
+jobs:
+  deploy:
+    name: Build, push & deploy (staging)
+    runs-on: ubuntu-latest
+    # Only run after CI passes — this job depends on the ci workflow completing
+    # (wired via branch protection rules, not a workflow dependency here)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      # ── Web app ──────────────────────────────────────────────────────────
+      - name: Build & push web image
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/web
+          push: true
+          tags: |
+            ${{ env.ECR_WEB }}:${{ steps.tag.outputs.TAG }}
+            ${{ env.ECR_WEB }}:latest
+          build-args: |
+            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+            LC_DATABASE_URL=${{ secrets.LC_DATABASE_URL }}
+            LC_APP_DATABASE_URL=${{ secrets.LC_APP_DATABASE_URL }}
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            STRIPE_PRICE_SEAT=${{ secrets.STRIPE_PRICE_SEAT }}
+            STRIPE_PRICE_STONE=${{ secrets.STRIPE_PRICE_STONE }}
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
+
+      # ── Grading service ───────────────────────────────────────────────────
+      - name: Build & push grading image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/grading
+          push: true
+          tags: |
+            ${{ env.ECR_GRADING }}:${{ steps.tag.outputs.TAG }}
+            ${{ env.ECR_GRADING }}:latest
+
+      # ── Pricing service ───────────────────────────────────────────────────
+      - name: Build & push pricing image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/pricing
+          push: true
+          tags: |
+            ${{ env.ECR_PRICING }}:${{ steps.tag.outputs.TAG }}
+            ${{ env.ECR_PRICING }}:latest
+
+      # ── ECS deploys ───────────────────────────────────────────────────────
+      - name: Deploy web to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_WEB }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deploy grading service to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_GRADING }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deploy pricing service to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE_PRICING }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      # ── Wait for stability ────────────────────────────────────────────────
+      - name: Wait for web service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE_WEB }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment summary
+        run: |
+          echo "### Staging deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Commit:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Image tag:** \`${{ steps.tag.outputs.TAG }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**URL:** ${{ secrets.NEXT_PUBLIC_APP_URL }}" >> "$GITHUB_STEP_SUMMARY"

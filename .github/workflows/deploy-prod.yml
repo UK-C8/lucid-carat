@@ -1,0 +1,90 @@
+name: Deploy — Production
+
+# Manual-only promotion. Takes a staging image tag (git SHA) and
+# re-deploys it to the prod ECS cluster without rebuilding.
+# This guarantees prod runs exactly the same image that passed staging.
+#
+# Required secrets (same as staging plus prod-specific overrides):
+#   AWS_ACCOUNT_ID, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   PROD_ECS_CLUSTER, PROD_ECS_SERVICE_WEB,
+#   PROD_ECS_SERVICE_GRADING, PROD_ECS_SERVICE_PRICING
+#   NEXT_PUBLIC_APP_URL_PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Git SHA / image tag to promote to production (e.g. abc1234)"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_WEB:     ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-web
+  ECR_GRADING: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-grading
+  ECR_PRICING: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/lucidcarat-pricing
+  # TODO: set these secrets to real prod ECS cluster/service names
+  ECS_CLUSTER:         ${{ secrets.PROD_ECS_CLUSTER }}
+  ECS_SERVICE_WEB:     ${{ secrets.PROD_ECS_SERVICE_WEB }}
+  ECS_SERVICE_GRADING: ${{ secrets.PROD_ECS_SERVICE_GRADING }}
+  ECS_SERVICE_PRICING: ${{ secrets.PROD_ECS_SERVICE_PRICING }}
+
+jobs:
+  promote:
+    name: Promote ${{ inputs.image_tag }} → production
+    runs-on: ubuntu-latest
+    environment: production   # requires manual approval if branch protection is configured
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Retag images for prod
+        # Add a :prod tag pointing at the same image digest — no rebuild
+        run: |
+          for REPO in ${{ env.ECR_WEB }} ${{ env.ECR_GRADING }} ${{ env.ECR_PRICING }}; do
+            MANIFEST=$(aws ecr batch-get-image \
+              --repository-name "$(basename $REPO)" \
+              --image-ids imageTag=${{ inputs.image_tag }} \
+              --region ${{ env.AWS_REGION }} \
+              --query 'images[0].imageManifest' --output text)
+            aws ecr put-image \
+              --repository-name "$(basename $REPO)" \
+              --image-tag prod \
+              --image-manifest "$MANIFEST" \
+              --region ${{ env.AWS_REGION }} || true
+          done
+
+      - name: Deploy to prod ECS
+        run: |
+          for SVC in ${{ env.ECS_SERVICE_WEB }} ${{ env.ECS_SERVICE_GRADING }} ${{ env.ECS_SERVICE_PRICING }}; do
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service $SVC \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+          done
+
+      - name: Wait for web service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE_WEB }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment summary
+        run: |
+          echo "### Production deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Promoted tag:** \`${{ inputs.image_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**URL:** ${{ secrets.NEXT_PUBLIC_APP_URL_PROD }}" >> "$GITHUB_STEP_SUMMARY"
