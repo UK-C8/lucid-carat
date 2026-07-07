@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import DemoRequestForm from "@/components/marketing/DemoRequestForm";
+import StepsSection from "@/components/marketing/StepsSection";
 
 export const metadata: Metadata = {
   title: "LucidCarat — Diamond Grading & Provenance Platform",
@@ -105,31 +106,6 @@ const features = [
   },
 ];
 
-// ── How it works steps ────────────────────────────────────────────────────────
-
-const steps = [
-  {
-    num: "01",
-    title: "Upload video + cert",
-    body: "Grader uploads a 360° turntable video and GIA/IGI certificate. Cert fields are auto-parsed; Carat comes from the cert, never estimated by CV.",
-  },
-  {
-    num: "02",
-    title: "AI pre-screens; grader confirms",
-    body: "CV model pre-screens Color, Clarity, and Cut with per-dimension confidence scores and cert-disagreement flags. Grader reviews and confirms or overrides each grade before the stone can proceed.",
-  },
-  {
-    num: "03",
-    title: "Price forecast generated",
-    body: "XGBoost model produces a fair price estimate and confidence band. Sales staff reviews, applies markup, and publishes the stone to the private catalog with buyer-specific pricing.",
-  },
-  {
-    num: "04",
-    title: "Buyer browses, inquires, and closes",
-    body: "Buyers browse the private catalog, open the 3D viewer, and submit inquiries. Sales manages quotes and soft reservations in the lightweight CRM. Closing a deal appends a 'sold' event to the Diamond Passport.",
-  },
-];
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -216,20 +192,7 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-bold mb-14">
             From upload to sold — in four steps.
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {steps.map((s, i) => (
-              <div key={s.num} className="relative">
-                {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-5 left-full w-full h-px bg-lc-border z-0" />
-                )}
-                <div className="relative z-10">
-                  <div className="text-4xl font-bold text-lc-blue/30 mb-3">{s.num}</div>
-                  <h3 className="font-semibold text-lc-text mb-2">{s.title}</h3>
-                  <p className="text-sm text-lc-muted leading-relaxed">{s.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <StepsSection />
         </div>
       </section>
 
