@@ -17,15 +17,19 @@ def _db_available() -> bool:
 
 _DB_AVAILABLE = _db_available()
 
+# Test files that contain psycopg.connect — all tests in these files that use
+# setup_method (i.e. need a live DB connection) are skipped in CI.
+_DB_TEST_FILES = {"test_cert_ingestion.py", "test_grading.py", "test_override.py"}
+
 
 def pytest_collection_modifyitems(config, items):
     if _DB_AVAILABLE:
-        return  # DB is up — run everything
+        return
 
     skip_db = pytest.mark.skip(reason="No DB available in CI — skipping DB integration tests")
     for item in items:
-        # Skip any test whose setup_method or fixture opens a psycopg connection
-        if "setup_method" in dir(item.cls or object):
-            src = item.fspath.read_text()
-            if "psycopg.connect" in src:
+        if item.fspath.basename in _DB_TEST_FILES and item.cls is not None:
+            # Only skip classes that open a DB connection (have setup_method that calls _conn/_get_conn)
+            src = item.fspath.read_text("utf-8")
+            if "psycopg.connect" in src and hasattr(item.cls, "setup_method"):
                 item.add_marker(skip_db)

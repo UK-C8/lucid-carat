@@ -17,14 +17,16 @@ def _db_available() -> bool:
 
 _DB_AVAILABLE = _db_available()
 
+_DB_TEST_FILES = {"test_pricing.py"}
+
 
 def pytest_collection_modifyitems(config, items):
     if _DB_AVAILABLE:
-        return  # DB is up — run everything
+        return
 
     skip_db = pytest.mark.skip(reason="No DB available in CI — skipping DB integration tests")
     for item in items:
-        if "setup_method" in dir(item.cls or object):
-            src = item.fspath.read_text()
-            if "psycopg.connect" in src:
+        if item.fspath.basename in _DB_TEST_FILES and item.cls is not None:
+            src = item.fspath.read_text("utf-8")
+            if "psycopg.connect" in src and hasattr(item.cls, "setup_method"):
                 item.add_marker(skip_db)
