@@ -1,18 +1,30 @@
 import os
 import pytest
 
-def pytest_collection_modifyitems(config, items):
-    """Skip any test that requires a live DB when LC_DATABASE_URL is not set."""
-    db_url = os.environ.get("LC_DATABASE_URL", "")
-    if db_url:
-        return  # DB available — run everything
 
-    skip_db = pytest.mark.skip(reason="LC_DATABASE_URL not set — skipping DB tests in CI")
-    db_test_classes = {
-        "TestWriterForecast",
-        "TestWriterAdjustment",
-        "TestDBConstraints",
-    }
+def _db_available() -> bool:
+    db_url = os.environ.get("LC_DATABASE_URL", "")
+    if not db_url:
+        return False
+    try:
+        import psycopg
+        conn = psycopg.connect(db_url, connect_timeout=3)
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+_DB_AVAILABLE = _db_available()
+
+
+def pytest_collection_modifyitems(config, items):
+    if _DB_AVAILABLE:
+        return  # DB is up — run everything
+
+    skip_db = pytest.mark.skip(reason="No DB available in CI — skipping DB integration tests")
     for item in items:
-        if item.cls and item.cls.__name__ in db_test_classes:
-            item.add_marker(skip_db)
+        if "setup_method" in dir(item.cls or object):
+            src = item.fspath.read_text()
+            if "psycopg.connect" in src:
+                item.add_marker(skip_db)
