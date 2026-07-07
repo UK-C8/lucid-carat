@@ -28,3 +28,4 @@ cd services/grading && pip install -r requirements.txt && uvicorn main:app --rel
 # Pricing service
 cd services/pricing && pip install -r requirements.txt && uvicorn main:app --reload --port 8002
 ```
+
