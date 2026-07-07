@@ -202,11 +202,7 @@ export default function LandingPage() {
             {pains.map(p => (
               <div key={p.pain} className="bg-lc-surface border border-lc-border rounded-xl p-6 flex flex-col gap-4">
                 <div className="text-3xl">{p.icon}</div>
-                <div>
-                  <p className="text-xs text-lc-muted line-through mb-1">{p.pain}</p>
-                  <p className="text-lc-text text-sm leading-relaxed">{p.solution}</p>
-                </div>
-                <Disclaimer>{p.disclaimer}</Disclaimer>
+                <p className="text-lc-text text-sm leading-relaxed">{p.solution}</p>
               </div>
             ))}
           </div>
