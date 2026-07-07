@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/withSession";
 import { query } from "@/lib/db";
 import { redirect } from "next/navigation";
+import FadeIn from "@/components/FadeIn";
 
 const STATUS_COLORS: Record<string, string> = {
   uploaded: "bg-gray-100 text-gray-600",
@@ -42,6 +43,7 @@ export default async function StonesPage() {
   );
 
   return (
+    <FadeIn>
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Stones</h1>
@@ -131,5 +133,6 @@ export default async function StonesPage() {
         </div>
       )}
     </div>
+    </FadeIn>
   );
 }

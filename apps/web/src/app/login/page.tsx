@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import FadeIn from "@/components/FadeIn";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,11 +36,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">LucidCarat</h1>
-          <p className="text-sm text-gray-500 mt-1">Diamond Grading & Provenance Platform</p>
-        </div>
+        <FadeIn delay={0}>
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">LucidCarat</h1>
+            <p className="text-sm text-gray-500 mt-1">Diamond Grading & Provenance Platform</p>
+          </div>
+        </FadeIn>
 
+        <FadeIn delay={100}>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -82,10 +86,13 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+        </FadeIn>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          LucidCarat grades are decision aids, not official GIA/IGI certificates.
-        </p>
+        <FadeIn delay={200}>
+          <p className="text-center text-xs text-gray-400 mt-4">
+            LucidCarat grades are decision aids, not official GIA/IGI certificates.
+          </p>
+        </FadeIn>
       </div>
     </div>
   );
