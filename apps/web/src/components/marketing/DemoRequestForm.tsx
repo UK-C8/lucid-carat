@@ -48,7 +48,7 @@ export default function DemoRequestForm({ source = "lucidcarat_landing", compact
               type="text"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Rajesh Mehta"
+              placeholder="Urvil Kargathala"
               className="w-full bg-lc-bg border border-lc-border text-lc-text text-sm rounded-lg px-4 py-2.5 placeholder-lc-muted/50 focus:outline-none focus:border-lc-blue transition-colors"
             />
           </div>
@@ -58,7 +58,7 @@ export default function DemoRequestForm({ source = "lucidcarat_landing", compact
               type="text"
               value={form.company}
               onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
-              placeholder="Shree Diamonds Pvt. Ltd."
+              placeholder="Rangani Jewellery"
               className="w-full bg-lc-bg border border-lc-border text-lc-text text-sm rounded-lg px-4 py-2.5 placeholder-lc-muted/50 focus:outline-none focus:border-lc-blue transition-colors"
             />
           </div>
