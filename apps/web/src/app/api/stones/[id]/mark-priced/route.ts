@@ -24,9 +24,9 @@ export async function POST(
     [stoneId]
   );
   if (!stones.length) return NextResponse.json({ error: "Stone not found" }, { status: 404 });
-  if (stones[0].status !== "priced") {
+  if (["sold", "archived"].includes(stones[0].status)) {
     return NextResponse.json(
-      { error: `Stone is not in priced status (current: ${stones[0].status})` },
+      { error: `Cannot update list price on a ${stones[0].status} stone` },
       { status: 409 }
     );
   }
