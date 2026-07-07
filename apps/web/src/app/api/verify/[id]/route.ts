@@ -83,7 +83,7 @@ export async function GET(
       confirmed_color: stone.confirmed_color,
       confirmed_clarity: stone.confirmed_clarity,
       confirmed_cut: stone.confirmed_cut,
-      lab_grown: stone.lab_grown ?? false,
+      lab_grown: stone.lab_grown === true || stone.lab_grown === "true",
       fluorescence: stone.fluorescence,
       polish: stone.polish,
       symmetry: stone.symmetry,
